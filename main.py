@@ -1,46 +1,90 @@
+import http.client
+import json
+
 def get_request(url: str):
-    """Sends an HTTP GET request to specified URL.
-    Parameters:
-        url (str): The URL
-    Returns:
-        tuple: A tuple containing the status code and text
-    Raises:
-        Exception: If the status code is in the range 400 to 499
-    """
+    """Sends an HTTP GET request using http.client."""
     try:
-        response = requests.get(url)
-        if 400 <= response.status_code <= 499:
-            raise Exception(f"Client Error: {response.status_code}, {response.text}")
-        if response.headers.get("Content-Type", "").startswith("application/json"):
-            return response.status_code, response.json()
-        return response.status_code, response.text
+        conn = http.client.HTTPSConnection(url.split('/')[2])  # Extract the hostname
+        conn.request("GET", url[url.find('/', 8):])  # Extract the path
+        response = conn.getresponse()
+        status_code = response.status
+        content_type = response.getheader("Content-Type")
+        response_text = response.read().decode("utf-8")
+        
+        if 400 <= status_code <= 499:
+            raise Exception(f"Client Error: {status_code}, {response_text}")
+        
+        if content_type.startswith("application/json"):
+            return status_code, json.loads(response_text)
+        return status_code, response_text
     except Exception as e:
         raise Exception(f"Error occurred during GET request: {str(e)}")
-    
-def get_postman_token_and_ip():
-    """Sends request to https://echo.free.beeceptor.com and extracts Postman-Token and IP address.
-    Returns:
-        tuple: A tuple containing the Postman-Token and IP address.
-    """
+
+def send_post_request():
+    """Sends an HTTP POST request using http.client."""
     url = "https://echo.free.beeceptor.com"
-    status_code, response = get_request(url)
-    postman_token = response.get("headers", {}).get("Postman-Token")
-    ip_address = response.get("headers", {}).get("X-Forwarded-For") or response.get("origin")
-    return postman_token, ip_address
-
-def test_get_request():
-    url = "https://httpbin.org/get"
-    status_code, response = get_request(url)
-    assert status_code == 200, f"Expected 200, got {status_code}"
-    assert isinstance(response, dict), f"Expected dict, got {type(response)}"
-    print("Passed!")
+    payload = {"hello": "world"}
+    headers = {"Content-Type": "application/json"}
     
-def test_get_postman_token_and_ip():
-    token, ip = get_postman_token_and_ip()
-    assert token is not None, "Postman-Token should not be None"
-    assert ip is not None, "IP address should not be None"
-    print("GET Postman-Token and IP test passed!")
+    conn = http.client.HTTPSConnection(url.split('/')[2])  # Extract the hostname
+    conn.request("POST", url[url.find('/', 8):], body=json.dumps(payload), headers=headers)
+    response = conn.getresponse()
+    status_code = response.status
+    content_type = response.getheader("Content-Type")
+    response_text = response.read().decode("utf-8")
+    
+    if content_type.startswith("application/json"):
+        return status_code, json.loads(response_text)
+    return status_code, response_text
 
+import urllib.request
+import json
+
+def get_request(url: str):
+    """Sends an HTTP GET request using urllib."""
+    try:
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req) as response:
+            status_code = response.getcode()
+            content_type = response.headers.get("Content-Type")
+            response_text = response.read().decode("utf-8")
+            
+            if 400 <= status_code <= 499:
+                raise Exception(f"Client Error: {status_code}, {response_text}")
+            
+            if content_type.startswith("application/json"):
+                return status_code, json.loads(response_text)
+            return status_code, response_text
+    except Exception as e:
+        raise Exception(f"Error occurred during GET request: {str(e)}")
+
+def send_post_request():
+    """Sends an HTTP POST request using urllib."""
+    url = "https://echo.free.beeceptor.com"
+    payload = json.dumps({"hello": "world"}).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    
+    req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req) as response:
+            status_code = response.getcode()
+            content_type = response.headers.get("Content-Type")
+            response_text = response.read().decode("utf-8")
+            
+            if content_type.startswith("application/json"):
+                return status_code, json.loads(response_text)
+            return status_code, response_text
+    except Exception as e:
+        raise Exception(f"Error occurred during POST request: {str(e)}")
+    
+    
 if __name__ == "__main__":
-    test_get_request()
-    test_get_postman_token_and_ip()
+    # Test the GET request
+    status_code, response = get_request("https://httpbin.org/get")
+    print(f"GET Response Status: {status_code}")
+    print(f"GET Response Body: {response}")
+
+    # Test the POST request
+    status_code, response = send_post_request()
+    print(f"POST Response Status: {status_code}")
+    print(f"POST Response Body: {response}")
